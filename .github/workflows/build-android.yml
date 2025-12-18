@@ -1,0 +1,55 @@
+name: Build Android APK (arm-v7a)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.22.2'
+        channel: 'stable'
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Build Flutter APK (arm-v7a)
+      run: |
+        flutter build apk --release --target-platform android-arm
+        echo "APK build completed"
+
+    - name: Prepare artifacts
+      run: |
+        mkdir -p build/artifacts
+        cp build/app/outputs/flutter-apk/app-release.apk build/artifacts/ech-workers-${{ github.sha }}.apk
+        cp build/app/outputs/flutter-apk/app-release.apk build/artifacts/ech-workers-latest.apk
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ech-workers-android-apk
+        path: |
+          build/artifacts/*.apk
+          build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+
+    - name: Create release
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: build/artifacts/*.apk
+        name: Android Release ${{ github.sha }}
+        tag_name: android-${{ github.sha }}
+        draft: false
+        prerelease: false
